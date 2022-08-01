@@ -15,6 +15,15 @@ import numpy as np
 
 import traceback
 
+from demo.category_and_tsne import ref_category_desp
+from demo.ref_paper_desp import ref_desp
+import hashlib
+import pdb
+import re
+import pke
+import networkx as nx
+from collections import defaultdict
+
 DATA_PATH = 'static/data/'
 TXT_PATH = 'static/reftxtpapers/overall/'
 
@@ -81,8 +90,146 @@ class reference_collection(object):
             matched_entries, matched_num = self.full_match_with_entries_in_pd(query_paper_titles)
         return matched_entries, matched_num
 
+    
+def generate_uid():
+    uid_str=""
+    hash = hashlib.sha1()
+    hash.update(str(time.time()).encode('utf-8'))
+    uid_str= hash.hexdigest()[:10]
+    
+    return uid_str    
+    
 def index(request):
     return render(request, 'demo/index.html')
+
+
+
+class PosRank(pke.unsupervised.PositionRank):
+    def __init__(self):
+        """Redefining initializer for PositionRank."""
+        super(PosRank, self).__init__()
+        self.positions = defaultdict(float)
+        """Container the sums of word's inverse positions."""
+    def candidate_selection(self,grammar=None,maximum_word_number=3,minimum_word_number=2):
+        if grammar is None:
+            grammar = "NP:{<ADJ>*<NOUN|PROPN>+}"
+
+        # select sequence of adjectives and nouns
+        self.grammar_selection(grammar=grammar)
+
+        # filter candidates greater than 3 words
+        for k in list(self.candidates):
+            v = self.candidates[k]
+            #pdb.set_trace()
+            #if len(k) < 3:
+            #    del self.candidates[k]
+            if len(v.lexical_form) > maximum_word_number or len(v.lexical_form) < minimum_word_number:
+                #if len(v.lexical_form) < minimum_word_number:
+                #    pdb.set_trace()
+                del self.candidates[k]
+    
+def clean_str(input_str):
+    input_str = str(input_str).strip().lower()
+    if input_str == "none" or input_str == "nan" or len(input_str) == 0:
+        return ""
+    input_str = input_str.replace('\\n',' ').replace('\n',' ').replace('\r',' ').replace('——',' ').replace('——',' ').replace('__',' ').replace('__',' ').replace('........','.').replace('....','.').replace('....','.').replace('..','.').replace('..','.').replace('..','.').replace('. . . . . . . . ','. ').replace('. . . . ','. ').replace('. . . . ','. ').replace('. . ','. ').replace('. . ','. ')
+    input_str = re.sub(r'\\u[0-9a-z]{4}', ' ', input_str).replace('  ',' ').replace('  ',' ')
+    return input_str
+
+def PosRank_get_top5_ngrams(input_pd):
+
+    pos = {'NOUN', 'PROPN', 'ADJ'}
+    #extractor = pke.unsupervised.TextRank()
+    #extractor = pke.unsupervised.PositionRank()
+    extractor = PosRank()
+
+    #input_str=input_pd["abstract"][0].replace('-','')#.value()
+
+    #pdb.set_trace()
+    
+    #for (keyphrase, score) in extractor.get_n_best(n=5, stemming=True):#stemming=False
+    #    print(keyphrase, score)
+    abs_top5_unigram_list_list = []
+    abs_top5_bigram_list_list = []
+    abs_top5_trigram_list_list = []
+    intro_top5_unigram_list_list = []
+    intro_top5_bigram_list_list = []
+    intro_top5_trigram_list_list = []
+
+    for line_index,pd_row in input_pd.iterrows():
+        
+        input_str=pd_row["abstract"].replace('-','')
+        extractor.load_document(input=input_str,language='en',normalization=None)
+        #extractor.load_document(input=input_str,language="en",normalization='stemming')
+
+        #unigram
+        unigram_extractor=extractor
+        #unigram_extractor.candidate_weighting(window=1,pos=pos,top_percent=0.33)
+        unigram_extractor.candidate_selection(maximum_word_number=1,minimum_word_number=1)
+        unigram_extractor.candidate_weighting(window=6,pos=pos,normalized=False)
+        abs_top5_unigram_list = []
+        for (keyphrase, score) in unigram_extractor.get_n_best(n=5, stemming=True):
+            keyphrase = keyphrase.replace('-','')
+            if len(keyphrase)>2:
+                abs_top5_unigram_list.append(keyphrase)
+        #pdb.set_trace()
+        #bigram
+        bigram_extractor=extractor
+        #bigram_extractor.candidate_weighting(window=2,pos=pos,top_percent=0.33)
+        #abs_top5_bigram = extractor.get_n_best(n=5, stemming=True)#stemming=False
+        bigram_extractor.candidate_selection(maximum_word_number=2,minimum_word_number=2)
+        bigram_extractor.candidate_weighting(window=6,pos=pos,normalized=False)
+        abs_top5_bigram_list = []
+        for (keyphrase, score) in bigram_extractor.get_n_best(n=5, stemming=True):
+            keyphrase = keyphrase.replace('-','')
+            if len(keyphrase)>2:
+                abs_top5_bigram_list.append(keyphrase)
+        
+        #trigram
+        trigram_extractor=extractor
+        #trigram_extractor.candidate_weighting(window=3,pos=pos,top_percent=0.33)
+        trigram_extractor.candidate_selection(maximum_word_number=3,minimum_word_number=3)
+        trigram_extractor.candidate_weighting(window=6,pos=pos,normalized=False)
+        abs_top5_trigram_list = []
+        for (keyphrase, score) in trigram_extractor.get_n_best(n=5, stemming=True):
+            keyphrase = keyphrase.replace('-','')
+            if len(keyphrase)>2:
+                abs_top5_trigram_list.append(keyphrase)
+
+        '''
+        input_str=pd_row["intro"].replace('-','')
+        extractor.load_document(input=input_str,language='en',normalization=None)
+
+        #unigram
+        extractor.candidate_weighting(window=1,pos=pos,top_percent=0.33)
+        intro_top5_unigram_list = []
+        for (keyphrase, score) in extractor.get_n_best(n=5, stemming=True):
+            intro_top5_unigram_list.append(keyphrase)
+
+        #bigram
+        extractor.candidate_weighting(window=2,pos=pos,top_percent=0.33)
+        #intro_top5_bigram = extractor.get_n_best(n=5, stemming=True)#stemming=False
+        intro_top5_bigram_list = []
+        for (keyphrase, score) in extractor.get_n_best(n=5, stemming=True):
+            intro_top5_bigram_list.append(keyphrase)
+        
+        #trigram
+        extractor.candidate_weighting(window=3,pos=pos,top_percent=0.33)
+        intro_top5_trigram_list = []
+        for (keyphrase, score) in extractor.get_n_best(n=5, stemming=True):
+            intro_top5_trigram_list.append(keyphrase)
+        '''
+
+        abs_top5_unigram_list_list.append(abs_top5_unigram_list) 
+        abs_top5_bigram_list_list.append(abs_top5_bigram_list) 
+        abs_top5_trigram_list_list.append(abs_top5_trigram_list)
+        ''' 
+        intro_top5_unigram_list_list.append(intro_top5_unigram_list) 
+        intro_top5_bigram_list_list.append(intro_top5_bigram_list)
+        intro_top5_trigram_list_list.append(intro_top5_trigram_list)
+        '''
+    return abs_top5_unigram_list_list,abs_top5_bigram_list_list,abs_top5_trigram_list_list
+    
 
 '''
 @csrf_exempt
