@@ -312,7 +312,7 @@ def upload_refs(request):
             for chunk in file_obj.chunks():
                 f.write(chunk)
 
-        input_pd = pd.read_csv(DATA_PATH + csvfile_name, sep = '\t')
+        input_pd = pd.read_csv(DATA_PATH + csvfile_name, sep = ',') #sep = '\t'
         #print(input_pd.keys())
         #pdb.set_trace()
 
@@ -434,6 +434,28 @@ def upload_refs(request):
     #pdb.set_trace()
     return HttpResponse(ref_list)
 
+
+@csrf_exempt
+def annotate_categories(request):
+    annotated_topic_word_list = request.POST.get('labels', False)
+    Global_survey_id = request.POST.get('uid', False)
+    
+    tsvfile_name = "upload_file_" + Global_survey_id + '.tsv'  
+    input_pd = pd.read_csv(DATA_PATH + tsvfile_name, sep = '\t')
+    assert(len(annotated_topic_word_list)==input_pd.shape[0])
+    input_pd['label'] = annotated_topic_word_list
+    output_tsv_filename = tsvfile_name
+    input_pd.to_csv(output_tsv_filename, sep='\t')
+
+    ref_indexs = [i+1 for i in range(len(annotated_topic_word_list))]
+
+    ref_list = {
+        'survey_id': Global_survey_id,
+        'ref_indexs': ref_indexs,
+        'category_label': annotated_topic_word_list,
+    }
+    ref_list = json.dumps(ref_list)
+    return HttpResponse(ref_list)
 
 
 @csrf_exempt
