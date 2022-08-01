@@ -84,7 +84,7 @@ class reference_collection(object):
 def index(request):
     return render(request, 'demo/index.html')
 
-
+'''
 @csrf_exempt
 def upload_refs(request):
     file_dict = request.FILES
@@ -133,45 +133,159 @@ def upload_refs(request):
 
     ref_list = json.dumps(ref_list)
     return HttpResponse(ref_list)
+'''
 
 
+@csrf_exempt
+def upload_refs(request):
+    is_valid_submission = True
+    has_label_id = False
+    has_ref_link = False
+
+    file_dict = request.FILES
+    if len(list(file_dict.keys()))>0:
+        file_name = list(file_dict.keys())[0]
+        file_obj = file_dict[file_name]
+    else:
+        is_valid_submission = False
+    
+    if is_valid_submission == True:
+        ## get uid
+        global Global_survey_id
+        uid_str = generate_uid()
+        Global_survey_id = uid_str
+
+        global Survey_dict
+        survey_title = file_name.split('.')[-1].title()
+        Survey_dict[uid_str] = survey_title
+        
+        new_file_name = "upload_file_" + Global_survey_id
+        csvfile_name = new_file_name + '.'+ file_name.split('.')[-1]
+        with open(DATA_PATH + csvfile_name, 'wb+') as f:
+            for chunk in file_obj.chunks():
+                f.write(chunk)
+
+        input_pd = pd.read_csv(DATA_PATH + csvfile_name, sep = '\t')
+        #print(input_pd.keys())
+        #pdb.set_trace()
+
+        '''
+        input_required_col_names = ['reference paper title',
+           'reference paper citation information (can be collected from Google scholar/DBLP)',
+           'reference paper abstract (Please copy the text AND paste here)',
+           'reference paper introduction (Please copy the text AND paste here)',
+           ]
+        input_optional_col_names = ['reference paper doi link (optional)','reference paper category label (optional)'] #'reference paper category id (optional)'
+
+        output_optional_col_names = ["ref_title","ref_context","ref_entry","abstract","intro","ref_link","label","topic_word","topic_bigram","topic_trigram","description"]
+        or
+        output_optional_col_names = ["ref_title","ref_context","ref_entry","abstract","intro","ref_link","label","description"]
+        '''
+        clusters_topic_words = []
+        
+        if input_pd.shape[0]>0:
+
+            ## change col name
+            try:
+                # required columns
+                input_pd["ref_title"] = input_pd["reference paper title"].apply(lambda x: clean_str(x) if len(str(x))>0 else '')
+                input_pd["ref_context"] = [""]*input_pd.shape[0]
+                input_pd["ref_entry"] = input_pd["reference paper citation information (can be collected from Google scholar/DBLP)"]
+                input_pd["abstract"] = input_pd["reference paper abstract (Please copy the text AND paste here)"].apply(lambda x: clean_str(x) if len(str(x))>0 else '')
+                input_pd["intro"] = input_pd["reference paper introduction (Please copy the text AND paste here)"].apply(lambda x: clean_str(x) if len(str(x))>0 else '')
+
+                # optional columns
+                input_pd["ref_link"] = input_pd["reference paper doi link (optional)"].apply(lambda x: x if len(str(x))>0 else '')
+                input_pd["label"] = input_pd["reference paper category label (optional)"].apply(lambda x: str(x) if len(str(x))>0 else '')
+                #input_pd["label"] = input_pd["reference paper category id (optional)"].apply(lambda x: str(x) if len(str(x))>0 else '')
+            except:
+                print("Cannot convert the column name")
+                is_valid_submission = False
+
+            ## get cluster_num, check has_label_id
+            stat_input_pd_labels = input_pd["label"].value_counts()
+            #pdb.set_trace()
+            if len(stat_input_pd_labels.keys())>1:
+                cluster_num = len(stat_input_pd_labels.keys())
+                clusters_topic_words = stat_input_pd_labels.keys()
+                has_label_id = True
+            else:
+                #pdb.set_trace()
+                cluster_num = 3 # as default
+            global Survey_n_clusters
+            Survey_n_clusters[uid_str] = cluster_num
+            global Survey_Topic_dict
+            Survey_Topic_dict[uid_str] = clusters_topic_words
+
+            ## check has_ref_link
+            if len(input_pd["ref_link"].value_counts().keys())>1:
+                has_ref_link = True
+            
+            
+            ## get keywords
+            try:
+                #pdb.set_trace()
+                input_pd["topic_word"],input_pd["topic_bigram"],input_pd["topic_trigram"] = PosRank_get_top5_ngrams(input_pd)
+                #input_pd["topic_word"],input_pd["topic_bigram"],input_pd["topic_trigram"] = abs_top5_unigram_list_list, abs_top5_bigram_list_list, abs_top5_trigram_list_list
+
+                #Survey_Topic_dict[uid_str] = input_pd["topic_word"]
+            except:
+                print("Cannot select keywords")
+                is_valid_submission = False
+                #Survey_Topic_dict[uid_str] = []
+
+            ## generate reference description
+            try:
+                ref_desp_gen = ref_desp(input_pd)
+                description_list = ref_desp_gen.ref_desp_generator()
+                ref_desp_list=[]
+                for ref_desp_set in description_list:
+                    ref_desp_list.append(ref_desp_set[1])
+                #pdb.set_trace()
+                input_pd["description"]=ref_desp_list
+            except:
+                print("Cannot generate reference paper's description")
+                is_valid_submission = False
 
 
-    # with open('some/file/name.txt', 'wb+') as destination:
-    #     for chunk in f.chunks():
-    #         destination.write(chunk)
-    # return HttpResponse(file_name)
-    # files = request.POST.getlist('files[]')
-    # global Global_survey_id
-    # Global_survey_id = '001'
-    # Survey_dict[Global_survey_id] = topic
-    #
-    # print(files[0])
-    # Survey_Topic_dict[Global_survey_id] = [topic.lower()]
-    #
-    # Survey_n_clusters[Global_survey_id] = 2
-    #
-    # input_folder_dir = DATA_PATH + 'merge.tsv'
-    # input_tsv = pd.read_csv(input_folder_dir, sep='\t', header=0)
-    # query_paper_titles = [i.split('.')[0] for i in files]
-    #
-    #
-    #
-    # ref_set = reference_collection(input_tsv)
-    # matched_entries_pd, matched_entries_num = ref_set.match_ref_paper(query_paper_titles, match_mode='full')
-    #
-    # # print(matched_entries_pd)
-    # matched_entries_pd.to_csv(DATA_PATH + '001.tsv', sep='\t')
-    #
-    # references, ref_links, ref_ids = get_refs(Global_survey_id)
-    #
-    # ref_links = [TXT_PATH+i for i in files]
-    #
-    # for i in ref_links:
-    #     print(i)
-    #
+            ## output tsv
+            try:
+                output_tsv_filename = DATA_PATH + new_file_name + '.tsv'
+                
+                #output_df = input_pd[["ref_title","ref_context","ref_entry","abstract","intro","description"]]
+                output_df = input_pd[["ref_title","ref_context","ref_entry","abstract","intro","topic_word","topic_bigram","topic_trigram","description"]]
+                
+                if has_label_id == True:
+                    output_df["label"]=input_pd["label"]
+                else:
+                    output_df["label"]=[""]*input_pd.shape[0]
+                if has_ref_link == True:
+                    output_df["ref_link"]=input_pd["ref_link"]
+                else:
+                    output_df["ref_link"]=[""]*input_pd.shape[0]
+            
+                #pdb.set_trace()
+                output_df.to_csv(output_tsv_filename, sep='\t')
+            except:
+                print("Cannot output tsv")
+                is_valid_submission = False
+            #Survey_dict[Global_survey_id] = topic
+            #Survey_Topic_dict[Global_survey_id] = [topic.lower()]
 
+        else:
+            # no record in submitted file
+            is_valid_submission = False
+    
 
+    if is_valid_submission == True:
+        ref_list = {'references':output_df['ref_title'].tolist(),'ref_links':output_df['ref_link'].tolist(),'ref_ids':[i for i in range(output_df['ref_title'].shape[0])],'is_valid_submission':is_valid_submission,"uid":uid_str,"tsv_filename":output_tsv_filename,'topic_words': clusters_topic_words}
+        #ref_list = {'references':output_df['ref_title'].tolist(),'ref_links':output_df['ref_link'].tolist(),'ref_ids':[i for i in range(output_df['ref_title'].shape[0])]}
+    else:
+        ref_list = {'references':[],'ref_links':[],'ref_ids':[],'is_valid_submission':is_valid_submission,"uid":uid_str,"tsv_filename":output_tsv_filename,'topic_words': []}
+        #ref_list = {'references':[],'ref_links':[],'ref_ids':[]}
+    ref_list = json.dumps(ref_list)
+    #pdb.set_trace()
+    return HttpResponse(ref_list)
 
 
 
