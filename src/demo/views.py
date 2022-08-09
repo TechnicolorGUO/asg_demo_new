@@ -305,14 +305,14 @@ def upload_refs(request):
         global Survey_dict
         survey_title = file_name.split('.')[-1].title()
         Survey_dict[uid_str] = survey_title
-        
+
         new_file_name = "upload_file_" + Global_survey_id
         csvfile_name = new_file_name + '.'+ file_name.split('.')[-1]
         with open(DATA_PATH + csvfile_name, 'wb+') as f:
             for chunk in file_obj.chunks():
                 f.write(chunk)
 
-        input_pd = pd.read_csv(DATA_PATH + csvfile_name, sep = ',') #sep = '\t'
+        input_pd = pd.read_csv(DATA_PATH + csvfile_name, sep = ',', encoding='utf-8') #sep = '\t'
         #print(input_pd.keys())
         #pdb.set_trace()
 
@@ -683,7 +683,7 @@ def get_survey_text(refs=Global_ref_list):
 
 
 def Clustering_refs(n_clusters):
-    df = pd.read_csv(DATA_PATH + Global_survey_id + '.tsv', sep='\t', index_col=0)
+    df = pd.read_csv(DATA_PATH + 'upload_file_' + Global_survey_id + '.tsv', sep='\t', index_col=0)
     df_selected = df.iloc[Global_ref_list]
 
     print(df_selected.shape)
