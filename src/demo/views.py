@@ -451,7 +451,7 @@ def upload_refs(request):
     else:
         ref_list = {'references':[],'ref_links':[],'ref_ids':[],'is_valid_submission':is_valid_submission,"uid":uid_str,"tsv_filename":output_tsv_filename,'topic_words': []}
         #ref_list = {'references':[],'ref_links':[],'ref_ids':[]}
-    pdb.set_trace()
+    #pdb.set_trace()
     ref_list = json.dumps(ref_list)
     return HttpResponse(ref_list)
 
