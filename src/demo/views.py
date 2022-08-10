@@ -23,6 +23,7 @@ import re
 import pke
 import networkx as nx
 from collections import defaultdict
+import os
 
 DATA_PATH = 'static/data/'
 TXT_PATH = 'static/reftxtpapers/overall/'
@@ -455,15 +456,13 @@ def upload_refs(request):
     ref_list = json.dumps(ref_list)
     return HttpResponse(ref_list)
 
-
 @csrf_exempt
 def annotate_categories(request):
     #Global_survey_id = request.POST.get('uid', False)
     global Global_survey_id
-    annotated_topic_word_list = request.POST.get('topic_word_list', False)
+    topic_word_list = request.POST.get('topic_word_list', False)
     annotated_paper_ids_list_list = request.POST.get('ref_lists', False)
-    assert(len(annotated_topic_word_list)==len(annotated_paper_ids_list_list))
-
+    assert(len(topic_word_list)==len(annotated_paper_ids_list_list))
 
     tsvfile_name = "upload_file_" + Global_survey_id + '.tsv'  
     input_pd = pd.read_csv(DATA_PATH + tsvfile_name, sep = '\t')
@@ -472,16 +471,15 @@ def annotate_categories(request):
     annotated_topic_word_list = ['']*input_pd.shape[0]
     for category_id,annotated_paper_ids_list in enumerate(annotated_paper_ids_list_list):
         for annotated_paper_id in annotated_paper_ids_list:
-            annotated_topic_word_list[annotated_paper_id] = annotated_topic_word_list[category_id]
+            annotated_topic_word_list[annotated_paper_id] = topic_word_list[category_id]
 
     input_pd['label'] = annotated_topic_word_list
-    output_tsv_filename = tsvfile_name
+    #pdb.set_trace()
+    output_tsv_filename = DATA_PATH + tsvfile_name
+    os.remove(output_tsv_filename)
     input_pd.to_csv(output_tsv_filename, sep='\t')
 
-    ref_indexs = [i+1 for i in range(len(annotated_topic_word_list))]
-
     return HttpResponse('success')
-
 
 @csrf_exempt
 def get_topic(request):
