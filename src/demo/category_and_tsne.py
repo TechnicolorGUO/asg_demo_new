@@ -194,9 +194,10 @@ class ref_category_desp(object):
     def desp_generator(self, match_ratio = 70, summary_len = 30, topic_selection = 'topic_bigram'):
         train_tsv = self.input_DF
 
-        data_without_NaN = train_tsv.dropna(axis=0)
+        data_without_NaN = train_tsv#.dropna(axis=0)
 
-
+        print('data_without_NaN')
+        print(data_without_NaN.head(5))
         type_info = data_without_NaN['label'].value_counts()
         type_list = list(data_without_NaN['label'].unique())
 
@@ -809,6 +810,7 @@ def get_cluster_description(df, survey_id):
         match_ratio = 90
     input_DF = df
     category_desp = ref_category_desp(input_DF, survey_id)
+    print('category_desp ', category_desp)
     description_list = category_desp.desp_generator(match_ratio=match_ratio, summary_len=summary_len, topic_selection=topic_selection)
     print('='*100)
     print(description_list)
