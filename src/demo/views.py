@@ -817,6 +817,9 @@ def upload_refs(request):
                 cluster_num = len(stat_input_pd_labels.keys())
                 clusters_topic_words = stat_input_pd_labels.keys().tolist()
                 has_label_id = True
+
+                global Global_category_label
+                Global_category_label = clusters_topic_words
             else:
                 #pdb.set_trace()
                 cluster_num = 3 # as default
